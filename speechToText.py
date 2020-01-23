@@ -20,7 +20,9 @@ class CommandToken:
         self.token_id = token_id
         self.positionInCommand = pos
 
-CommandType = Enum(MASTER_COMMAND = 1, CUSTOM_COMMAND = 2)
+class CommandType(Enum):
+    MASTER_COMMAND = 1
+    CUSTOM_COMMAND = 2
 
 class Initializer:
     dictCommand = dict()
@@ -66,7 +68,7 @@ def getMatchingCommandIDAndType():
     for commandID, command in Initializer.dictCommand.items():
         if len(command.lst_command_token) == len(sequence):
             for i in range(0, len(sequence)):
-                if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand == i + 1) for tokenInCommand in command.lst_command_token) == False:
+                if any((tokenInCommand.token_id == sequence[i].token_id and 89.positionInCommand == i + 1) for tokenInCommand in command.lst_command_token) == False:
                     break
             if i == len(sequence) - 1:
             #    print('COMMAND ID:',commandID)
@@ -94,25 +96,25 @@ mydb = mysql.connector.connect(host="localhost",
 def getTokenRecord(myToken):
  
     try:
-        SQL = "select * from token where value='" + myToken + "'"
+        SQL = "select TokenID, Value, TypeID from token where value='" + myToken + "'"
         mycursor = mydb.cursor() 
         mycursor.execute(SQL)
         rec = mycursor.fetchall()
         if mycursor.rowcount != 0:
             for x in rec:
                 print(x)
-                obj = Token(x[0],x[1],x[2])
+                obj = Token(x["TokenID"],x["Value"],x["TypeID"])
             obj.displayDetails()
             sequence.append(obj)
         else:
-            SQL = "select * from token where value='UNDEFINED'"
-            mycursor = mydb.cursor() 
+            SQL = "select TokenID, Value, TypeID from token where value='UNDEFINED'"
+            mycursor = mydb.cursor()
             mycursor.execute(SQL)
             rec = mycursor.fetchall()
             if mycursor.rowcount != 0:
                 for x in rec:
                     print(x)
-                    obj = Token(x[0],x[1],x[2])
+                    obj = Token(x["TokenID"],x["Value"],x["TypeID"])
                 #obj.displayDetails()
                 sequence.append(obj)
             else:
