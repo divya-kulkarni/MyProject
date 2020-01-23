@@ -4,6 +4,7 @@ import pyaudio
 import webbrowser
 import bs4
 import mysql.connector
+from enum import Enum
 
 class Command:
     def __init__(self, command_id, command_name, command_type, lst_command_tokens):
@@ -157,15 +158,45 @@ def recognizeCommands():
 
 def getSuggestions():
     i = 0
+    suggestions = list()
     for commandID, command in Initializer.dictCommand.items():
-        if len(command.lst_command_token) != len(sequence):
+        if len(command.lst_command_token) == len(sequence):
+            cntMismatch = 0
             for i in range(0, len(sequence)):
                 if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand == i + 1) for tokenInCommand in command.lst_command_token) == False:
+                    cntMismatch += 1
+            if 20 >= cntMismatch * 100 / len(sequence): # if given command is varying less than or equal to 20% of the present command then it will be considered as suggestion
+                suggestions.append(command)
+        elif len(command.lst_command_token) > len(sequence):
+            cntNonExistingTokens = 0
+            cntMissingTokens = 0
+            lastMatchFound = 0
+            for i in range(0, len(sequence)):
+                if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand > lastMatchFound) for tokenInCommand in command.lst_command_token) == True:
+                    cntMissingTokens += tokenInCommand.positionInCommand - lastMatchFound - 1
+                    lastMatchFound = tokenInCommand.positionInCommand
+                else:
+                    cntNonExistingTokens += 1
+            cntMissingTokens += len(command.lst_command_token) - lastMatchFound
+            if 20 >= (cntNonExistingTokens + cntMissingTokens) * 100 / len(sequence): # if given command is varying less than or equal to 20% of the present command then it will be considered as suggestion
+                suggestions.append(command)
+        else:
+            cntNonExistingTokens = 0
+            cntMissingTokens = 0
+            lastMatchFound = 0
+            for i in range(0, len(sequence)):
+                if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand >= lastMatchFound) for tokenInCommand in command.lst_command_token) == True:
+                    cntMissingTokens += tokenInCommand.positionInCommand - lastMatchFound - 1
+                    lastMatchFound = tokenInCommand.positionInCommand
+                else:
+                    cntNonExistingTokens += 1
+                if lastMatchFound == len(command.lst_command_token):
                     break
-            if i == len(sequence) - 1:
-            #    print('COMMAND ID:',commandID)
-                return commandID, command.command_type
-    return -1, -1
+            cntNonExistingTokens += len(sequence) - i - 1
+            if 20 >= (cntNonExistingTokens + cntMissingTokens) * 100 / len(sequence): # if given command is varying less than or equal to 20% of the present command then it will be considered as suggestion
+                suggestions.append(command)
+            
+    return suggestions
 
 def editStyleTag(styleString):
     styleList = styleString.split(';')
@@ -384,14 +415,15 @@ while(True):
     if recognizeTokens(userInputValues):
         commandID, commandType = getMatchingCommandIDAndType()
         if commandID == -1:
-            getSuggestions(userInputValues)
-            choice = recognizeCommands()
-            selectedChoice = recognizeSuggestion(choice)
-            if  selectedChoice != -1:
-                addNewCustomCommand(selectedChoice, userInputValues)
-                #modifyToMasterCommand(userInputValues)
-            else:
-                print("I DIDN'T RECOGNIZE GIVEN CHOICE. PLEASE GIVING THE COMMAND AGAIN..")
+            suggestions = getSuggestions(userInputValues)
+            print(suggestions)
+            #choice = recognizeCommands()
+            #selectedChoice = recognizeSuggestion(choice)
+            #if  selectedChoice != -1:
+            #    addNewCustomCommand(selectedChoice, userInputValues)
+            #    #modifyToMasterCommand(userInputValues)
+            #else:
+            #    print("I DIDN'T RECOGNIZE GIVEN CHOICE. PLEASE GIVING THE COMMAND AGAIN..")
         if executeCommand(commandID,userInputValues):
             print('Command found and executed successfully!')
         else:
