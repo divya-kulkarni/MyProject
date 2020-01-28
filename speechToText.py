@@ -27,8 +27,10 @@ class CommandType(Enum):
     CUSTOM_COMMAND = 2
 
 class TokenType(Enum):
-    UNDEFINED = 1 #TODO: Give correct value
-    VALUE = 2 #TODO: Give correct value
+    UNDEFINED = 9
+    VALUE = 7
+    CUSTOM = 11
+
 
 class Initializer:
     dictCommand = dict()
@@ -70,6 +72,8 @@ class Initializer:
             command.lst_command_token.append(oCommandToken)
 
       #  print('ENDDD')
+
+# This function finds the exact command match based on tokenIDs, position in command and token types
 def getMatchingCommandIDAndType():
     i = 0
     for commandID, command in Initializer.dictCommand.items():
@@ -77,8 +81,8 @@ def getMatchingCommandIDAndType():
             for i in range(0, len(sequence)):
                 if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand == i + 1) or \
                         ((tokenInCommand.positionInCommand == i + 1 and sequence[i].token_type == TokenType.UNDEFINED and \
-                        (tokenInCommand.token_type == TokenType.VALUE) and tokenInCommand.token_id != sequence[i].token_id)) for tokenInCommand in command.lst_command_token) == False:
-                        #TODO: (tokenInCommand.token_type == TokenType.VALUE) in this bracket in above line add other token types which are to be ignored while matching. Separate the types with or condition in the bracket.
+                        (tokenInCommand.token_type == TokenType.VALUE) and tokenInCommand.token_id != sequence[i].token_id)) for \
+                        tokenInCommand in command.lst_command_token) == False:
                     break
             if i == len(sequence) - 1:
             #    print('COMMAND ID:',commandID)
@@ -103,7 +107,7 @@ mydb = mysql.connector.connect(host="localhost",
     passwd="developer@brainchild",
     database="project")
 
-   
+# This function will get the token record from the database if exists or gets the record for UNDEFINED token
 def getTokenRecord(myToken):
  
     try:
@@ -135,12 +139,14 @@ def getTokenRecord(myToken):
     except(exception):
         print(exception)
 
+# This function will check if each token exists or not
 def recognizeTokens(tokens):
     for token in tokens:
         if getTokenRecord(token) == False:
             return False
     return True
 
+# This function will tokenize the given command into different tokens
 def tokenize(text):
     tokens = []
     str = "%"
@@ -151,6 +157,7 @@ def tokenize(text):
     #print('TOKENS ARE: ',tokens)
     return tokens
 
+# This function will get the voice input and convert it to the text
 def recognizeCommands():
     r = sr.Recognizer()
 
@@ -169,6 +176,8 @@ def recognizeCommands():
         except sr.RequestError as e:
             print("Could not request results; {0}".format(e))
 
+# This function gives the suggestions by checking all the existing commands and matching their tokens with the tokens in given command
+# Maximum of 20% difference will be allowed in the given command and existing command for treating it as suggestion
 def getSuggestions():
     i = 0
     suggestions = list()
@@ -220,22 +229,115 @@ def getSuggestions():
 def remVowel(string): 
     return (re.sub("[aeiouAEIOU]","",string))
 
-def addNewCustomCommand(choice,userInputValues):
+# This function adds the new custom command into the database once user selects one of the given suggestion
+# First command is added into commandmaster. Then the tokens will be added into the tokens table. At the end tokens will be mapped with the command in commandtoken table.
+def addNewCustomCommand(selectedChoice, userInputValues):
     commandName = "_".join(userInputValues)
     commandName = remVowel(commandName)
-    masterCommandID = sequence[choice - 1].command_id
-    commandType = CommandType.CUSTOM_COMMAND.name
-    storedProcedure = "addNewCustomCommand"
+    masterCommandID = sequence[selectedChoice - 1].command_id
+    commandType = CommandType.CUSTOM_COMMAND.value
     try:
         cursor = mydb.cursor()
-        cursor.callproc(storedProcedure, [commandName, commandType, masterCommandID, result]) #result is the out parameter
-        # for result in cursor.stored_results():
-        #     print(result.fetchall())
-        if result != -1: #result will be the new commandID
-            #TODO: addCommandTokenList()
+        sql = "INSERT INTO CommandMaster (CommandName, CommandType, MasterCommandID) VALUES (%s, %s, %s)"
+        values = (commandName, commandType, selectedChoice)
+        cursor.execute(sql, values)
+        commandID = cursor.lastrowid
+
+        sql = "INSERT INTO Token (Value, TypeID) VALUES (%s, %s)"
+
+        commandTokenRecords = []
+
+        # Prepare tokens which are to be added from the input values given by user
+        if len(suggestions[selectedChoice-1].lst_command_token) == len(sequence):
+            isExistingToken = False
+
+            for i in range(0, len(sequence)):
+                isExistingToken = False
+                tokenType = TokenType.UNDEFINED
+
+                if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand == i + 1)) for tokenInCommand in suggestions[selectedChoice-1].lst_command_token) == False:
+                    isExistingToken = True # as match is found, token is identified and no need to add it to DB again
+                    tokenID = tokenInCommand.token_id
+
+                elif any((tokenInCommand.positionInCommand == i + 1 and sequence[i].token_type == TokenType.UNDEFINED and \
+                        (tokenInCommand.token_type == TokenType.VALUE) and tokenInCommand.token_id != sequence[i].token_id)) for tokenInCommand in suggestions[selectedChoice-1].lst_command_token) == False:
+                    tokenType = tokenInCommand.token_type # tokenType will be set to token type of corresponding command
+                else:
+                    # tokenType is already set to UNDEFINED
+                    pass
+
+                if isExistingToken == False:
+                    values = (sequence[i].value.upper(), tokenType)
+                    cursor.execute(sql, values)
+                    tokenID = cursor.lastrowid
+                    # print("New token added: ", sequence[i].value)
+
+                commandTokenRecords.append((commandID, tokenID, i+1))
+
+        elif len(suggestions[selectedChoice-1].lst_command_token) > len(sequence):
+            lastMatchFound = 0
+            isExistingToken = False
+
+            for i in range(0, len(sequence)):
+                isExistingToken = False
+                tokenType = TokenType.UNDEFINED
+
+                if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand > lastMatchFound) for tokenInCommand in suggestions[selectedChoice-1].lst_command_token) == True::
+                    isExistingToken = True # as match is found, token is identified and no need to add it to DB again
+                    lastMatchFound = tokenInCommand.positionInCommand
+                    tokenID = tokenInCommand.token_id
+                        
+                if(tokenInCommand.positionInCommand > lastMatchFound and sequence[i].token_type == TokenType.UNDEFINED and \
+                        (tokenInCommand.token_type == TokenType.VALUE) and tokenInCommand.token_id != sequence[i].token_id)) for tokenInCommand in suggestions[selectedChoice-1].lst_command_token) == True:
+                    tokenType = tokenInCommand.token_type # tokenType will be set to token type of corresponding command
+                    lastMatchFound = tokenInCommand.positionInCommand
+                else:
+                    # tokenType is already set to UNDEFINED
+                    pass
+
+                if isExistingToken == False:
+                    values = (sequence[i].value.upper(), tokenType)
+                    cursor.execute(sql, values)
+                    tokenID = cursor.lastrowid
+                    # print("New token added: ", sequence[i].value)
+
+                commandTokenRecords.append((commandID, tokenID, i+1))
+        else:
+            isExistingToken = False
+            lastMatchFound = 0
+            for i in range(0, len(sequence)):
+                isExistingToken = False
+                tokenType = TokenType.UNDEFINED
+
+                if lastMatchFound != len(suggestions[selectedChoice-1].lst_command_token):
+                    if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand >= lastMatchFound)) for tokenInCommand in suggestions[selectedChoice-1].lst_command_token) == True:
+                        sExistingToken = True # as match is found, token is identified and no need to add it to DB again
+                        lastMatchFound = tokenInCommand.positionInCommand
+                        tokenID = tokenInCommand.token_id
+
+                    elif (tokenInCommand.positionInCommand >= lastMatchFound and sequence[i].token_type == TokenType.UNDEFINED and \
+                            (tokenInCommand.token_type == TokenType.VALUE) and tokenInCommand.token_id != sequence[i].token_id)) for tokenInCommand in suggestions[selectedChoice-1].lst_command_token) == True:
+                        tokenType = tokenInCommand.token_type # tokenType will be set to token type of corresponding command
+                        lastMatchFound = tokenInCommand.positionInCommand
+                    else:
+                        # tokenType is already set to UNDEFINED
+                        pass
+
+                if isExistingToken == False:
+                    values = (sequence[i].value.upper(), tokenType)
+                    cursor.execute(sql, values)
+                    tokenID = cursor.lastrowid
+                    # print("New token added: ", sequence[i].value)
+
+                commandTokenRecords.append((commandID, tokenID, i+1))
+
+        sql = "INSERT INTO CommandToken (CommandID, TokenID, PositionInCommand) VALUES (%s, %s, %s)"
+        cursor.execute(sql, commandTokenRecords)
+        mydb.commit()
+        cursor.close()
 
     except mysql.connector.Error as error:
-        print("Failed to execute stored procedure: {}".format(error))
+        print("Failed to insert new custom command. {}".format(error))
     finally:
         if (connection.is_connected()):
             cursor.close()
@@ -254,7 +356,7 @@ def editStyleTag(styleString):
     #print(styleDict)
     #print(type(styleDict))
     return styleDict
-
+# This function executes the command
 def executeCommand(commandID,words):
     
     if commandID == 2:
@@ -452,8 +554,7 @@ def executeCommand(commandID,words):
 Initializer.fetchAllCommands()
 
 while(True):
-    #voiceCommand = recognizeCommands()
-    voiceCommand = 'change background color to blue'
+    voiceCommand = recognizeCommands()
 
     if voiceCommand == 'exit':
         break
@@ -463,18 +564,18 @@ while(True):
         if commandID == -1:
             suggestions = getSuggestions()
             print(suggestions)
-            choice = recognizeCommands()
-            selectedChoice = int(choice)
+            selectedChoice = recognizeCommands()
+            selectedChoice = int(selectedChoice)
             print('You have selected ', selectedChoice)
             if  1 <= selectedChoice <= len(suggestions):
                 addNewCustomCommand(selectedChoice, userInputValues)
-                # modifyToMasterCommand(userInputValues)
-                # if executeCommand(suggestions[selectedChoice-1].command_id,userInputValues):
-                #     print('Command found and executed successfully!')
-                # else:
-                #     print('### COMMAND NOT EXECUTED!! ###')
-            #else:
-            #    print("I DIDN'T RECOGNIZE GIVEN CHOICE. PLEASE GIVING THE COMMAND AGAIN..")
+                modifyToMasterCommand(userInputValues)
+                if executeCommand(suggestions[selectedChoice-1].command_id,userInputValues):
+                    print('Command found and executed successfully!')
+                else:
+                    print('### COMMAND NOT EXECUTED!! ###')
+            else:
+               print("I DIDN'T RECOGNIZE GIVEN CHOICE. PLEASE GIVING THE COMMAND AGAIN..")
         else:
             if executeCommand(commandID,userInputValues):
                 print('Command found and executed successfully!')

@@ -63,7 +63,7 @@ CREATE TABLE tokentype (
 ENGINE = INNODB,
 AVG_ROW_LENGTH = 2048,
 CHARACTER SET utf8mb4,
-COLLATE utf8mb4_0900_ai_ci;
+COLLATE utf8mb4_general_ci;
 
 --
 -- Create table `token`
@@ -77,7 +77,7 @@ CREATE TABLE token (
 ENGINE = INNODB,
 AVG_ROW_LENGTH = 655,
 CHARACTER SET utf8mb4,
-COLLATE utf8mb4_0900_ai_ci;
+COLLATE utf8mb4_general_ci;
 
 --
 -- Create foreign key
@@ -98,7 +98,7 @@ CREATE TABLE commandmaster (
 ENGINE = INNODB,
 AVG_ROW_LENGTH = 819,
 CHARACTER SET utf8mb4,
-COLLATE utf8mb4_0900_ai_ci;
+COLLATE utf8mb4_general_ci;
 
 --
 -- Create table `commandtoken`
@@ -113,7 +113,7 @@ CREATE TABLE commandtoken (
 ENGINE = INNODB,
 AVG_ROW_LENGTH = 146,
 CHARACTER SET utf8mb4,
-COLLATE utf8mb4_0900_ai_ci;
+COLLATE utf8mb4_general_ci;
 
 --
 -- Create foreign key
@@ -141,7 +141,7 @@ CREATE TABLE commandtype (
 ENGINE = INNODB,
 AVG_ROW_LENGTH = 2048,
 CHARACTER SET utf8mb4,
-COLLATE utf8mb4_0900_ai_ci;
+COLLATE utf8mb4_general_ci;
 
 --
 -- Create foreign key
