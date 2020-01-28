@@ -5,6 +5,7 @@ import webbrowser
 import bs4
 import mysql.connector
 from enum import Enum
+import re
 
 class Command:
     def __init__(self, command_id, command_name, command_type, lst_command_tokens):
@@ -14,15 +15,20 @@ class Command:
         self.lst_command_token = lst_command_tokens
 
 class CommandToken:
-    def __init__(self,command_no,command_id,token_id,pos):
+    def __init__(self,command_no,command_id,token_id,pos,token_type):
         self.command_no = command_no
         self.command_id = command_id
         self.token_id = token_id
         self.positionInCommand = pos
+        self.token_type = token_type
 
 class CommandType(Enum):
     MASTER_COMMAND = 1
     CUSTOM_COMMAND = 2
+
+class TokenType(Enum):
+    UNDEFINED = 1 #TODO: Give correct value
+    VALUE = 2 #TODO: Give correct value
 
 class Initializer:
     dictCommand = dict()
@@ -34,7 +40,8 @@ class Initializer:
     def fetchAllCommands():
         mydb = mysql.connector.connect(host="localhost",
         user="root",
-        passwd="divyaanuja",
+        # passwd="divyaanuja",
+        passwd="developer@brainchild",
         database="project")
         try:
             mycursor = mydb.cursor()
@@ -50,12 +57,12 @@ class Initializer:
             obj = Command(row["CommandID"],row["CommandName"],row["CommandType"],None)
             Initializer.dictCommand[row["CommandID"]] = obj
 
-        SQL = "select cno, CommandID, TokenID, PositionInCommand from CommandToken"
+        SQL = "select CT.cno, CT.CommandID, CT.TokenID, CT.PositionInCommand, T.TypeID from CommandToken CT join Token T on CT.TokenID = T.TokenID"
         mycursor.execute(SQL)
         rec = mycursor.fetchall()
 
         for row in rec:
-            oCommandToken = CommandToken(row["cno"],row["CommandID"],row["TokenID"],row["PositionInCommand"])
+            oCommandToken = CommandToken(row["cno"],row["CommandID"],row["TokenID"],row["PositionInCommand"],row["TypeID"])
             command = Initializer.dictCommand.get(row["CommandID"])
             if command.lst_command_token == None:
                 command.lst_command_token = list()
@@ -68,7 +75,10 @@ def getMatchingCommandIDAndType():
     for commandID, command in Initializer.dictCommand.items():
         if len(command.lst_command_token) == len(sequence):
             for i in range(0, len(sequence)):
-                if any((tokenInCommand.token_id == sequence[i].token_id and 89.positionInCommand == i + 1) for tokenInCommand in command.lst_command_token) == False:
+                if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand == i + 1) or \
+                        ((tokenInCommand.positionInCommand == i + 1 and sequence[i].token_type == TokenType.UNDEFINED and \
+                        (tokenInCommand.token_type == TokenType.VALUE) and tokenInCommand.token_id != sequence[i].token_id)) for tokenInCommand in command.lst_command_token) == False:
+                        #TODO: (tokenInCommand.token_type == TokenType.VALUE) in this bracket in above line add other token types which are to be ignored while matching. Separate the types with or condition in the bracket.
                     break
             if i == len(sequence) - 1:
             #    print('COMMAND ID:',commandID)
@@ -89,7 +99,8 @@ sequence = []
 
 mydb = mysql.connector.connect(host="localhost",
     user="root",
-    passwd="divyaanuja",
+    # passwd="divyaanuja",
+    passwd="developer@brainchild",
     database="project")
 
    
@@ -165,7 +176,9 @@ def getSuggestions():
         if len(command.lst_command_token) == len(sequence):
             cntMismatch = 0
             for i in range(0, len(sequence)):
-                if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand == i + 1) for tokenInCommand in command.lst_command_token) == False:
+                if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand == i + 1) or \
+                        (tokenInCommand.positionInCommand == i + 1 and sequence[i].token_type == TokenType.UNDEFINED and \
+                        (tokenInCommand.token_type == TokenType.VALUE) and tokenInCommand.token_id != sequence[i].token_id)) for tokenInCommand in command.lst_command_token) == False:
                     cntMismatch += 1
             if 20 >= cntMismatch * 100 / len(sequence): # if given command is varying less than or equal to 20% of the present command then it will be considered as suggestion
                 suggestions.append(command)
@@ -174,7 +187,9 @@ def getSuggestions():
             cntMissingTokens = 0
             lastMatchFound = 0
             for i in range(0, len(sequence)):
-                if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand > lastMatchFound) for tokenInCommand in command.lst_command_token) == True:
+                if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand > lastMatchFound) or \
+                        (tokenInCommand.positionInCommand > lastMatchFound and sequence[i].token_type == TokenType.UNDEFINED and \
+                        (tokenInCommand.token_type == TokenType.VALUE) and tokenInCommand.token_id != sequence[i].token_id)) for tokenInCommand in command.lst_command_token) == True:
                     cntMissingTokens += tokenInCommand.positionInCommand - lastMatchFound - 1
                     lastMatchFound = tokenInCommand.positionInCommand
                 else:
@@ -187,7 +202,9 @@ def getSuggestions():
             cntMissingTokens = 0
             lastMatchFound = 0
             for i in range(0, len(sequence)):
-                if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand >= lastMatchFound) for tokenInCommand in command.lst_command_token) == True:
+                if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand >= lastMatchFound) or \
+                        (tokenInCommand.positionInCommand >= lastMatchFound and sequence[i].token_type == TokenType.UNDEFINED and \
+                        (tokenInCommand.token_type == TokenType.VALUE) and tokenInCommand.token_id != sequence[i].token_id)) for tokenInCommand in command.lst_command_token) == True:
                     cntMissingTokens += tokenInCommand.positionInCommand - lastMatchFound - 1
                     lastMatchFound = tokenInCommand.positionInCommand
                 else:
@@ -199,6 +216,33 @@ def getSuggestions():
                 suggestions.append(command)
             
     return suggestions
+
+def remVowel(string): 
+    return (re.sub("[aeiouAEIOU]","",string))
+
+def addNewCustomCommand(choice,userInputValues):
+    commandName = "_".join(userInputValues)
+    commandName = remVowel(commandName)
+    masterCommandID = sequence[choice - 1].command_id
+    commandType = CommandType.CUSTOM_COMMAND.name
+    storedProcedure = "addNewCustomCommand"
+    try:
+        cursor = mydb.cursor()
+        cursor.callproc(storedProcedure, [commandName, commandType, masterCommandID, result]) #result is the out parameter
+        # for result in cursor.stored_results():
+        #     print(result.fetchall())
+        if result != -1: #result will be the new commandID
+            #TODO: addCommandTokenList()
+
+    except mysql.connector.Error as error:
+        print("Failed to execute stored procedure: {}".format(error))
+    finally:
+        if (connection.is_connected()):
+            cursor.close()
+            connection.close()
+            print("MySQL connection is closed")
+
+
 
 def editStyleTag(styleString):
     styleList = styleString.split(';')
@@ -417,18 +461,24 @@ while(True):
     if recognizeTokens(userInputValues):
         commandID, commandType = getMatchingCommandIDAndType()
         if commandID == -1:
-            suggestions = getSuggestions(userInputValues)
+            suggestions = getSuggestions()
             print(suggestions)
-            #choice = recognizeCommands()
-            #selectedChoice = recognizeSuggestion(choice)
-            #if  selectedChoice != -1:
-            #    addNewCustomCommand(selectedChoice, userInputValues)
-            #    #modifyToMasterCommand(userInputValues)
+            choice = recognizeCommands()
+            selectedChoice = int(choice)
+            print('You have selected ', selectedChoice)
+            if  1 <= selectedChoice <= len(suggestions):
+                addNewCustomCommand(selectedChoice, userInputValues)
+                # modifyToMasterCommand(userInputValues)
+                # if executeCommand(suggestions[selectedChoice-1].command_id,userInputValues):
+                #     print('Command found and executed successfully!')
+                # else:
+                #     print('### COMMAND NOT EXECUTED!! ###')
             #else:
             #    print("I DIDN'T RECOGNIZE GIVEN CHOICE. PLEASE GIVING THE COMMAND AGAIN..")
-        if executeCommand(commandID,userInputValues):
-            print('Command found and executed successfully!')
         else:
-            print('### COMMAND NOT EXECUTED!! ###')
+            if executeCommand(commandID,userInputValues):
+                print('Command found and executed successfully!')
+            else:
+                print('### COMMAND NOT EXECUTED!! ###')
     else:
         print('@@@ Could not process command!! @@@')
