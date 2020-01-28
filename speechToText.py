@@ -51,7 +51,7 @@ class Initializer:
         except(BaseException):
             print(BaseException)
         
-        SQL = "select CommandID, CommandName, CommandType from CommandMaster"
+        SQL = "select CommandID, CommandName, CommandType from commandmaster"
         mycursor.execute(SQL)
         rec = mycursor.fetchall()
 
@@ -185,9 +185,9 @@ def getSuggestions():
         if len(command.lst_command_token) == len(sequence):
             cntMismatch = 0
             for i in range(0, len(sequence)):
-                if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand == i + 1) or \
+                if (any(tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand == i + 1) or \
                         (tokenInCommand.positionInCommand == i + 1 and sequence[i].token_type == TokenType.UNDEFINED and \
-                        (tokenInCommand.token_type == TokenType.VALUE or tokenInCommand.token_type == TokenType.UNDEFINED) and tokenInCommand.token_id != sequence[i].token_id)) for tokenInCommand in command.lst_command_token) == False:
+                        (tokenInCommand.token_type == TokenType.VALUE or tokenInCommand.token_type == TokenType.UNDEFINED) and tokenInCommand.token_id != sequence[i].token_id) for tokenInCommand in command.lst_command_token) == False:
                     cntMismatch += 1
             if 20 >= cntMismatch * 100 / len(sequence): # if given command is varying less than or equal to 20% of the present command then it will be considered as suggestion
                 suggestions.append(command)
@@ -196,7 +196,7 @@ def getSuggestions():
             cntMissingTokens = 0
             lastMatchFound = 0
             for i in range(0, len(sequence)):
-                if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand > lastMatchFound) or \
+                if (any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand > lastMatchFound) or \
                         (tokenInCommand.positionInCommand > lastMatchFound and sequence[i].token_type == TokenType.UNDEFINED and \
                         (tokenInCommand.token_type == TokenType.VALUE or tokenInCommand.token_type == TokenType.UNDEFINED) and tokenInCommand.token_id != sequence[i].token_id)) for tokenInCommand in command.lst_command_token) == True:
                     cntMissingTokens += tokenInCommand.positionInCommand - lastMatchFound - 1
@@ -211,7 +211,7 @@ def getSuggestions():
             cntMissingTokens = 0
             lastMatchFound = 0
             for i in range(0, len(sequence)):
-                if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand >= lastMatchFound) or \
+                if (any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand >= lastMatchFound) or \
                         (tokenInCommand.positionInCommand >= lastMatchFound and sequence[i].token_type == TokenType.UNDEFINED and \
                         (tokenInCommand.token_type == TokenType.VALUE or tokenInCommand.token_type == TokenType.UNDEFINED) and tokenInCommand.token_id != sequence[i].token_id)) for tokenInCommand in command.lst_command_token) == True:
                     cntMissingTokens += tokenInCommand.positionInCommand - lastMatchFound - 1
@@ -255,11 +255,11 @@ def addNewCustomCommand(selectedChoice, userInputValues):
                 isExistingToken = False
                 tokenType = TokenType.UNDEFINED
 
-                if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand == i + 1)) for tokenInCommand in suggestions[selectedChoice-1].lst_command_token) == False:
+                if (any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand == i + 1)) for tokenInCommand in suggestions[selectedChoice-1].lst_command_token) == False:
                     isExistingToken = True # as match is found, token is identified and no need to add it to DB again
                     tokenID = tokenInCommand.token_id
 
-                elif any((tokenInCommand.positionInCommand == i + 1 and sequence[i].token_type == TokenType.UNDEFINED and \
+                elif (any((tokenInCommand.positionInCommand == i + 1 and sequence[i].token_type == TokenType.UNDEFINED and \
                         (tokenInCommand.token_type == TokenType.VALUE or tokenInCommand.token_type == TokenType.UNDEFINED) and tokenInCommand.token_id != sequence[i].token_id)) for tokenInCommand in suggestions[selectedChoice-1].lst_command_token) == False:
                     tokenType = tokenInCommand.token_type # tokenType will be set to token type of corresponding command
                 else:
@@ -282,13 +282,13 @@ def addNewCustomCommand(selectedChoice, userInputValues):
                 isExistingToken = False
                 tokenType = TokenType.UNDEFINED
 
-                if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand > lastMatchFound) for tokenInCommand in suggestions[selectedChoice-1].lst_command_token) == True::
+                if (any(tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand > lastMatchFound) for tokenInCommand in suggestions[selectedChoice-1].lst_command_token) == True:
                     isExistingToken = True # as match is found, token is identified and no need to add it to DB again
                     lastMatchFound = tokenInCommand.positionInCommand
                     tokenID = tokenInCommand.token_id
                         
-                if(tokenInCommand.positionInCommand > lastMatchFound and sequence[i].token_type == TokenType.UNDEFINED and \
-                        (tokenInCommand.token_type == TokenType.VALUE or tokenInCommand.token_type == TokenType.UNDEFINED) and tokenInCommand.token_id != sequence[i].token_id)) for tokenInCommand in suggestions[selectedChoice-1].lst_command_token) == True:
+                if (any(tokenInCommand.positionInCommand > lastMatchFound and sequence[i].token_type == TokenType.UNDEFINED and \
+                        (tokenInCommand.token_type == TokenType.VALUE or tokenInCommand.token_type == TokenType.UNDEFINED) and tokenInCommand.token_id != sequence[i].token_id) for tokenInCommand in suggestions[selectedChoice-1].lst_command_token) == True:
                     tokenType = tokenInCommand.token_type # tokenType will be set to token type of corresponding command
                     lastMatchFound = tokenInCommand.positionInCommand
                 else:
@@ -310,13 +310,13 @@ def addNewCustomCommand(selectedChoice, userInputValues):
                 tokenType = TokenType.UNDEFINED
 
                 if lastMatchFound != len(suggestions[selectedChoice-1].lst_command_token):
-                    if any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand >= lastMatchFound)) for tokenInCommand in suggestions[selectedChoice-1].lst_command_token) == True:
+                    if (any((tokenInCommand.token_id == sequence[i].token_id and tokenInCommand.positionInCommand >= lastMatchFound)) for tokenInCommand in suggestions[selectedChoice-1].lst_command_token) == True:
                         sExistingToken = True # as match is found, token is identified and no need to add it to DB again
                         lastMatchFound = tokenInCommand.positionInCommand
                         tokenID = tokenInCommand.token_id
 
-                    elif (tokenInCommand.positionInCommand >= lastMatchFound and sequence[i].token_type == TokenType.UNDEFINED and \
-                            (tokenInCommand.token_type == TokenType.VALUE or tokenInCommand.token_type == TokenType.UNDEFINED) and tokenInCommand.token_id != sequence[i].token_id)) for tokenInCommand in suggestions[selectedChoice-1].lst_command_token) == True:
+                    elif ( any(tokenInCommand.positionInCommand >= lastMatchFound and sequence[i].token_type == TokenType.UNDEFINED and \
+                            (tokenInCommand.token_type == TokenType.VALUE or tokenInCommand.token_type == TokenType.UNDEFINED) and tokenInCommand.token_id != sequence[i].token_id) for tokenInCommand in suggestions[selectedChoice-1].lst_command_token) == True:
                         tokenType = tokenInCommand.token_type # tokenType will be set to token type of corresponding command
                         lastMatchFound = tokenInCommand.positionInCommand
                     else:
